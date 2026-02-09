@@ -1,0 +1,7 @@
+**/*.zwc
+*.sublime-project
+*.sublime-workspace
+*.md
+
+# Release artifacts
+dist/
