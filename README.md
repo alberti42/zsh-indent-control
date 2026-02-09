@@ -68,6 +68,18 @@ export ZLE_INDENT_WIDTH=2
 
 Put it in `~/.zshrc` before the plugin is loaded.
 
+### Keymaps
+
+Control which Zsh keymaps the plugin binds to:
+
+```sh
+export ZIC_KEYMAPS='main,vicmd'
+```
+
+Default: `main` (covers emacs mode and vi insert mode).
+`main` is always included even if omitted from the list.
+Vi users who want Tab-indent in command mode should add `vicmd`.
+
 ## Notes
 
 - This plugin only changes what Tab does at the very start of a line (the indentation area).
