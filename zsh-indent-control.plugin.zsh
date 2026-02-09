@@ -41,7 +41,6 @@ function _zsh_indent_control.widget() {
   # If only whitespace precedes the cursor, insert spaces (indent).
   if [[ -z ${left_of_line//[[:space:]]/} ]]; then
     LBUFFER+="${(l:${indent_width}:: :)""}"
-    _zsh_indent_control.debug.log "indent: inserted ${indent_width} spaces"
     return
   fi
 
@@ -54,10 +53,8 @@ function _zsh_indent_control.widget() {
   fi
 
   if [[ -n "$orig_widget" && "$orig_widget" != "_zsh_indent_control.widget" ]]; then
-    _zsh_indent_control.debug.log "fallback: $orig_widget (keymap=$km)"
     zle "$orig_widget"
   else
-    _zsh_indent_control.debug.log "fallback: expand-or-complete (keymap=$km)"
     zle expand-or-complete
   fi
 }
@@ -87,23 +84,10 @@ function _zsh_indent_control.init() {
   # cfg.indent_width: number of spaces per indent (default: 2)
   _zsh_indent_control[cfg.indent_width]=${ZLE_INDENT_WIDTH:-2}
 
-  # cfg.debug_mode: enable trace output to stderr (default: off)
-  _zsh_indent_control[cfg.debug_mode]=${ZIC_DEBUG:-0}
-
   # cfg.keymaps: Zsh keymaps to bind; "main" is always included
   local -a _zic_raw=(${(s:,:)${ZIC_KEYMAPS:-main}})
   _zic_raw+=(main)
   _zsh_indent_control[cfg.keymaps]="${(j:,:)${(u)_zic_raw}}"
-
-  # ── debug logger ──
-  # No-op by default; replaced with a real logger when cfg.debug_mode=1.
-  if (( _zsh_indent_control[cfg.debug_mode] )); then
-    function _zsh_indent_control.debug.log() {
-      builtin print -u2 "[zsh-indent-control] $*"
-    }
-  else
-    function _zsh_indent_control.debug.log() { return 0 }
-  fi
 
   # ── register widget ──
   zle -N _zsh_indent_control.widget
@@ -131,9 +115,6 @@ function _zsh_indent_control.init() {
   for keymap in $keymaps; do
     bindkey -M "$keymap" "$trigger_key" _zsh_indent_control.widget 2>/dev/null
   done
-
-  _zsh_indent_control.debug.log "init: keymaps=${_zsh_indent_control[cfg.keymaps]}" \
-    "indent_width=${_zsh_indent_control[cfg.indent_width]}"
 }
 
 # ── Self-init (§11: module calls its own init at EOF) ────────────────
