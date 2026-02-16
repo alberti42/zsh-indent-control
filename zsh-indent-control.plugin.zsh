@@ -84,10 +84,13 @@ function _zsh_indent_control.init() {
   # cfg.indent_width: number of spaces per indent (default: 2)
   _zsh_indent_control[cfg.indent_width]=${ZLE_INDENT_WIDTH:-2}
 
-  # cfg.keymaps: Zsh keymaps to bind; "main" is always included
-  local -a _zic_raw=(${(s:,:)${ZIC_KEYMAPS:-main}})
-  _zic_raw+=(main)
-  _zsh_indent_control[cfg.keymaps]="${(j:,:)${(u)_zic_raw}}"
+  # cfg.keymaps: Zsh keymaps to bind; "main" is always included.
+  # ZLE uses "main" during normal line editing; bindkey -e/-v make
+  # main an alias for emacs/viins.  Other keymaps (isearch, menuselect, vicmd, …)
+  # are independent and only active in transient contexts.
+  # Customize only to add extra keymaps (e.g. vicmd).
+  local -aU _zic_raw=(${(s:,:)${ZIC_KEYMAPS:-main}} main)
+  _zsh_indent_control[cfg.keymaps]="${(j:,:)_zic_raw}"
 
   # ── register widget ──
   zle -N _zsh_indent_control.widget

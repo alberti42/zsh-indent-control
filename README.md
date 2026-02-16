@@ -70,15 +70,20 @@ Put it in `~/.zshrc` before the plugin is loaded.
 
 ### Keymaps
 
-Control which Zsh keymaps the plugin binds to:
+Most users do not need to touch this setting. ZLE uses the `main` keymap during normal line editing. `bindkey -e` (Emacs) and `bindkey -v` (vi) work by making `main` an alias for `emacs` or `viins` respectively, so binding to `main` is sufficient for normal editing in either mode.
+
+Other keymaps (`isearch`, `menuselect`, `vicmd`, etc.) are independent — they are only active in special transient contexts (incremental search, completion menus, vi command mode) where Tab-indent is typically not useful.
+
+The only reason to customize is if you want Tab-indent in one of those additional keymaps:
+
+- `vicmd` — vi command mode (entered by pressing Escape in vi insert mode).
+- Custom keymaps created by you or other plugins.
 
 ```sh
 export ZIC_KEYMAPS='main,vicmd'
 ```
 
-Default: `main` (covers emacs mode and vi insert mode).
 `main` is always included even if omitted from the list.
-Vi users who want Tab-indent in command mode should add `vicmd`.
 
 ## Notes
 
