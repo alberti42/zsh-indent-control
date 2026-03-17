@@ -46,6 +46,7 @@ paths=(
   README.md
   LICENSE
   zsh-indent-control.plugin.zsh
+  src
 )
 
 local p
