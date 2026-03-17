@@ -17,88 +17,50 @@
 #   meta.*   paths and metadata
 typeset -gA _zsh_indent_control
 
-# ── Widget ───────────────────────────────────────────────────────────
-# ZLE widget bound to the trigger key (default: Tab / ^I).
-#
-# Decision logic:
-#   - Extract text left of the cursor on the current line.
-#   - If only whitespace precedes the cursor → insert cfg.indent_width spaces.
-#   - Otherwise → call the original widget that was bound to the trigger key.
-#
-# Why emulate -L (not -LR): this is a hot-path function (runs on every
-# Tab press); we localize options without a full reset (§18).
-#
-# Inputs:  LBUFFER, KEYMAP (ZLE specials)
-# Touches: LBUFFER (mutated on indent) or delegates via zle
+# Idempotency guard: safe to re-source.
+(( ${+_zsh_indent_control[guard.inited]} )) && return 0
+_zsh_indent_control[guard.inited]=1
+
+# ── Metadata ─────────────────────────────────────────────────────────
+_zsh_indent_control[meta.plugin_dir]=${${(%):-%x}:a:h}
+
+# ── User config (read once; env vars must be set before sourcing) ─────
+
+# cfg.trigger_key: the key to intercept (default: ^I = Tab)
+_zsh_indent_control[cfg.trigger_key]='^I'
+
+# cfg.indent_width: number of spaces per indent (default: 2)
+_zsh_indent_control[cfg.indent_width]=${ZLE_INDENT_WIDTH:-2}
+
+# cfg.keymaps: Zsh keymaps to bind; "main" is always included.
+# ZLE uses "main" during normal line editing; bindkey -e/-v make
+# main an alias for emacs/viins.  Other keymaps (isearch, menuselect, vicmd, …)
+# are independent and only active in transient contexts.
+# Customize only to add extra keymaps (e.g. vicmd).
+(){
+  local -aU _zic_raw=(${(s:,:)${ZIC_KEYMAPS:-main}} main)
+  _zsh_indent_control[cfg.keymaps]="${(j:,:)_zic_raw}"
+}
+
+# ── Lazy stub widget ──────────────────────────────────────────────────
+# On first Tab: sources the core (which redefines this to the real widget),
+# then calls the real widget.  All subsequent Tab presses skip this stub.
 function _zsh_indent_control.widget() {
-  emulate -L zsh
-
-  local left_of_line=${LBUFFER##*$'\n'}
-  local -i indent_width
-  indent_width=${_zsh_indent_control[cfg.indent_width]:-2}
-  (( indent_width < 0 )) && indent_width=0
-
-  # If only whitespace precedes the cursor, insert spaces (indent).
-  if [[ -z ${left_of_line//[[:space:]]/} ]]; then
-    LBUFFER+="${(l:${indent_width}:: :)""}"
-    return
-  fi
-
-  # Fallback: call whatever was originally bound to the trigger key
-  # in the active keymap.  $KEYMAP is often "main" (not "emacs"/"viins").
-  local km="${KEYMAP:-main}"
-  local orig_widget="${_zsh_indent_control[state.orig_widget.${km}]}"
-  if [[ -z "$orig_widget" && "$km" != "main" ]]; then
-    orig_widget="${_zsh_indent_control[state.orig_widget.main]}"
-  fi
-
-  if [[ -n "$orig_widget" && "$orig_widget" != "_zsh_indent_control.widget" ]]; then
-    zle "$orig_widget"
+  local _zic_core="${_zsh_indent_control[meta.plugin_dir]}/src/zsh-indent-control.zsh"
+  if [[ -r $_zic_core ]] && builtin source "$_zic_core"; then
+    _zsh_indent_control.widget
   else
     zle expand-or-complete
   fi
 }
 
-# ── Init ─────────────────────────────────────────────────────────────
-# Reads user config, registers the widget, and bootstraps keybindings.
-# Idempotent: guarded so re-sourcing is safe (§11).
-#
-# Why emulate -LR: this is a one-shot function (not hot-path), so a full
-# option reset gives us a predictable environment (§18).
-function _zsh_indent_control.init() {
-  (( ${+_zsh_indent_control[guard.inited]} )) && return 0
+zle -N _zsh_indent_control.widget
 
-  builtin emulate -LR zsh
-  builtin setopt warn_create_global no_short_loops
-
-  _zsh_indent_control[guard.inited]=1
-
-  # ── metadata ──
-  _zsh_indent_control[meta.plugin_dir]=${${(%):-%x}:a:h}
-
-  # ── user config (read once; env vars must be set before sourcing) ──
-
-  # cfg.trigger_key: the key to intercept (default: ^I = Tab)
-  _zsh_indent_control[cfg.trigger_key]='^I'
-
-  # cfg.indent_width: number of spaces per indent (default: 2)
-  _zsh_indent_control[cfg.indent_width]=${ZLE_INDENT_WIDTH:-2}
-
-  # cfg.keymaps: Zsh keymaps to bind; "main" is always included.
-  # ZLE uses "main" during normal line editing; bindkey -e/-v make
-  # main an alias for emacs/viins.  Other keymaps (isearch, menuselect, vicmd, …)
-  # are independent and only active in transient contexts.
-  # Customize only to add extra keymaps (e.g. vicmd).
-  local -aU _zic_raw=(${(s:,:)${ZIC_KEYMAPS:-main}} main)
-  _zsh_indent_control[cfg.keymaps]="${(j:,:)_zic_raw}"
-
-  # ── register widget ──
-  zle -N _zsh_indent_control.widget
-
-  # ── bootstrap keybindings ──
-  # Two-pass approach: snapshot first, then rebind.
-  # Why two passes: some keymaps share underlying bindings, so changing
-  # one can silently affect others before we snapshot them.
+# ── Keybinding snapshot + bind ────────────────────────────────────────
+# Two-pass approach: snapshot first, then rebind.
+# Why two passes: some keymaps share underlying bindings, so changing
+# one can silently affect others before we snapshot them.
+(){
   local keymap binding orig_widget
   local trigger_key="${_zsh_indent_control[cfg.trigger_key]}"
   local -a keymaps=(${(s:,:)${_zsh_indent_control[cfg.keymaps]}})
@@ -119,6 +81,3 @@ function _zsh_indent_control.init() {
     bindkey -M "$keymap" "$trigger_key" _zsh_indent_control.widget 2>/dev/null
   done
 }
-
-# ── Self-init (§11: module calls its own init at EOF) ────────────────
-_zsh_indent_control.init
