@@ -1,6 +1,6 @@
 # zsh-indent-control
 
-A tiny Zsh plugin that makes Tab behave nicely at the start of a line.
+A tiny Zsh plugin that makes Tab behave nicely at the start of a line — loads in ~2 ms.
 
 Turn leading Tab into spaces.
 
@@ -21,9 +21,9 @@ It’s not obvious how to make ZLE insert a fixed number of spaces instead of a 
 ## What it does (in plain terms)
 
 - If there’s only whitespace before the cursor on the current line: inserts spaces (you choose how many).
-- If there’s any real text before the cursor: falls back to your normal Tab behavior.
+- If there’s any real text before the cursor: hands control back to whatever widget was bound to Tab before this plugin loaded.
 
-It tries hard to preserve your existing setup and play well with completion frameworks.
+At load time the plugin snapshots the existing Tab binding (e.g. `expand-or-complete`, `fzf-tab`, or any other completion widget) and stores it. When Tab is pressed outside the indentation area, the plugin simply calls that stored widget — so completion keeps working exactly as before.
 
 ## Install
 
@@ -47,6 +47,17 @@ It tries hard to preserve your existing setup and play well with completion fram
    ```sh
    source ~/.zshrc
    ```
+
+### Zinit
+
+```zsh
+# Import zsh-indent-control
+zinit lucid wait'0c' from'gh-r' extract'!' light-mode \
+  atinit:"export ZLE_INDENT_WIDTH=2" compile \
+  for @alberti42/zsh-indent-control
+```
+
+The `wait'0c'` delay is intentional. This plugin works by snapshotting whatever is bound to Tab at load time, then calling that widget when Tab is pressed outside the indentation area. It must therefore load *after* any plugin that binds to Tab — in particular `fzf-tab` (if installed), which always installs its own Tab widget and never passes control to a previously bound widget. Loading last ensures the snapshot captures the final Tab binding and completion keeps working correctly.
 
 ### Manual install (source the file)
 
